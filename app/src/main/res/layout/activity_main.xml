@@ -1,0 +1,26 @@
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:orientation="vertical">
+    <org.opencv.android.JavaCameraView
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
+        android:id="@+id/color_blob_detection_activity_surface_view"/>
+<LinearLayout
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal">
+    <Button
+        android:layout_width="240dp"
+        android:layout_height="wrap_content"
+        android:text="@string/connect"
+        android:id="@+id/connect"/>
+    <Button
+        android:layout_width="240dp"
+        android:layout_height="wrap_content"
+        android:text="@string/discoverable"
+        android:id="@+id/discover"/>
+</LinearLayout>
+
+</LinearLayout>
