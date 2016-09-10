@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">New_cv_car</string>
+    <string name="app_name">MyCar_Controller</string>
 
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
@@ -23,6 +23,13 @@
     <!-- Options Menu -->
     <string name="connect">Connect a device</string>
     <string name="discoverable">Make discoverable</string>
+    <string name="front">Change the Camera</string>
+    <string name="menu_about">About the App</string>
+    <string name="my_about">\t\tAuthor:\t\tKen~Jc\n\t\tE-Mail:bjc604498913@live.com\n\t\tWeChat:This↓↓↓↓↓↓</string>
     <!-- Button-->
     <string name="up">Go</string>
+
+    <string name="title_activity_about">AboutActivity</string>
+    <string name="dummy_button">Add me WeChat</string>
+    <string name="dummy_content">Your Eye</string>
 </resources>

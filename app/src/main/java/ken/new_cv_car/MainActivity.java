@@ -21,7 +21,6 @@ import org.opencv.imgproc.Imgproc;
 import android.app.Activity;
 import android.os.Bundle;
 import android.os.Message;
-import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.os.Handler;
@@ -37,60 +36,11 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 
-import android.widget.Button;
 import android.widget.Toast;
 
-import com.android.rkpx2.Gpio;
 
 public class MainActivity extends Activity implements OnTouchListener,CvCameraViewListener2 {
 
-
-    private Gpio RKPX2_PIN0_PD4=null;
-    private Gpio RKPX2_PIN0_PD5=null;
-
-    private void putlow_L(){
-        //init();
-        this.RKPX2_PIN0_PD5.setPortValue(Gpio.TYPE_VALUE_LOW);
-    }
-
-    private void puthigh_L(){
-        //init();
-        this.RKPX2_PIN0_PD5.setPortValue(Gpio.TYPE_VALUE_HIGH);
-    }
-
-    private void putlow_R(){
-        //init();
-        this.RKPX2_PIN0_PD4.setPortValue(Gpio.TYPE_VALUE_LOW);
-    }
-
-    private void puthigh_R(){
-        //init();
-        this.RKPX2_PIN0_PD4.setPortValue(Gpio.TYPE_VALUE_HIGH);
-    }
-
-    private void go(){
-        puthigh_L();
-        puthigh_R();
-    }
-    private void left(){
-        putlow_L();
-        puthigh_R();
-    }
-    private void right(){
-        puthigh_L();
-        putlow_R();
-    }
-    private void stop(){
-        putlow_L();
-        putlow_R();
-    }
-    private void init(){
-        RKPX2_PIN0_PD4=new Gpio(Gpio.RKPX2_PIN0_PD4);
-        RKPX2_PIN0_PD5=new Gpio(Gpio.RKPX2_PIN0_PD5);
-        //boolean isGpioValid=RKPX2_PIN0_PD4.gpio_request();
-        this.RKPX2_PIN0_PD4.setDirectionValue(Gpio.TYPE_DIRECTION_OUT, Gpio.TYPE_VALUE_LOW);
-        this.RKPX2_PIN0_PD5.setDirectionValue(Gpio.TYPE_DIRECTION_OUT, Gpio.TYPE_VALUE_LOW);
-    }
 
     //BlueTooth
     // Debugging
@@ -126,12 +76,11 @@ public class MainActivity extends Activity implements OnTouchListener,CvCameraVi
     // Member object for the chat services
     private BluetoothChatService mChatService = null;
 
-    int directions=0;
+    String directions;
+    String directionsUD;
 
-    private static final String  TAG              = "OCVSample::Activity";
-
-    String message_d;
-    //String message_s="0";
+    String message_LR;
+    String message_UD;
 
     private boolean              mIsColorSelected = false;
     private Mat mRgba;
@@ -144,29 +93,25 @@ public class MainActivity extends Activity implements OnTouchListener,CvCameraVi
 
     private CameraBridgeViewBase mOpenCvCameraView;
 
-    private int Center;
-    //private boolean KeepRunning=true;
+    private int CenterLR;
+    private int CenterUD;
+    private boolean KeepRunning=true;
     private int LastX=0;
+    private int LastY=0;
     private  double ObjectArea;
 
     private int Xpos;
     private int Ypos;
 
-    Button connect;
-    Button discover;
+    private static boolean ISFront=false;
+    //private Button btncon;
+   // private Button btndis;
 
     Handler handler=new Handler(){
         public void handleMessage(Message msg){
-            switch (directions) {
-                case 1:go();
-                    break;
-                case 2:left();
-                    break;
-                case 3:right();
-                    break;
-                default:stop();
-                    break;
-            }
+            sendMessage0(message_LR+message_UD);
+
+            //sendMessage0(message_UD);
             super.handleMessage(msg);
         }
     };
@@ -176,22 +121,53 @@ public class MainActivity extends Activity implements OnTouchListener,CvCameraVi
         public void run() {
             while (true) {
                 try {
-                    Thread.sleep(50L);//
-                    if((LastX<Center+25)&(LastX>Center-25)) {
-                        directions=1;//OnItemCenter
-                        //message_d="1";
+                    Thread.sleep(35);
+                    // Thread paused 35ms
+                    if (ObjectArea<=4000){ /**Distance/Area <=4000**/
+                        if((LastX<=CenterLR+35)&&(LastX>=CenterLR-35)) {
+                            directions="Center";//OnItemCenter
+                            message_LR="6";
+                        }
+                        else{
+                            if(LastX<CenterLR-35) {
+                                directions="Left";//OnItemLeft
+                                message_LR="2";
+                            }
+                            if(LastX>CenterLR+35) {
+                                directions="Right";//OnItemRight
+                                message_LR="4";
+                            }
+                        }
+
+                        if ((LastY<=CenterUD+35)&&(LastY>=CenterUD-35)){
+                            directionsUD="Center";
+                            message_UD="0";
+                        }
+                        else{
+                            if (LastY<CenterUD-35){
+                                directionsUD="Up";
+                                message_UD="9";
+                            }
+                            if (LastY>CenterUD+35){
+                                directionsUD="Down";
+                                message_UD="6";
+                            }
+                        }
+
                     }
-                    if(LastX<Center-25) {
-                        directions=2;//OnItemLeft
-                        //message_d="2";
+                    else if (ObjectArea>=8000) {
+                        message_LR="9";
+                        directions="Back";
                     }
-                    if(LastX>Center+25) {
-                        directions=3;//OnItemRight
-                        //message_d="3";
+                    else{
+                        message_LR="0";
+                        message_UD="0";
+                        directions="Stop";
+                        directionsUD="Stop";
                     }
                     Message message = new Message();
                     message.what = 1;
-                    handler.sendMessage(message);//
+                    handler.sendMessage(message);// Send message
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -205,7 +181,6 @@ public class MainActivity extends Activity implements OnTouchListener,CvCameraVi
             switch (status) {
                 case LoaderCallbackInterface.SUCCESS:
                 {
-                    Log.i(TAG, "OpenCV loaded successfully");
                     mOpenCvCameraView.enableView();
                     mOpenCvCameraView.setOnTouchListener(MainActivity.this);
                 } break;
@@ -218,27 +193,31 @@ public class MainActivity extends Activity implements OnTouchListener,CvCameraVi
     };
 
     public MainActivity() {
-        Log.i(TAG, "Instantiated new " + this.getClass());
     }
-
     /** Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        Log.i(TAG, "called onCreate");
         super.onCreate(savedInstanceState);
+
+        if(savedInstanceState!=null){
+             ISFront=savedInstanceState.getBoolean("ISFront",ISFront);
+        }
+
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         setContentView(R.layout.activity_main);
 
         mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.color_blob_detection_activity_surface_view);
+        if(ISFront){
+            mOpenCvCameraView.setCameraIndex(CameraBridgeViewBase.CAMERA_ID_FRONT);
+
+        }
+
         mOpenCvCameraView.setCvCameraViewListener(this);
 
         // Get local Bluetooth adapter
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-
-        connect=(Button)findViewById(R.id.connect);
-        discover=(Button)findViewById(R.id.discover);
 
         // If the adapter is null, then Bluetooth is not supported
         if (mBluetoothAdapter == null) {
@@ -247,17 +226,10 @@ public class MainActivity extends Activity implements OnTouchListener,CvCameraVi
             return;
         }
 
-        init();
-
-        //if(state)
-        //Car_Run();
-        new Thread(new MyThread()).start();
     }
-
     @Override
     public void onStart() {
         super.onStart();
-        if(D) Log.e(TAG, "++ ON START ++");
 
         // If BT is not on, request that it be enabled.
         // setupChat() will then be called during onActivityResult
@@ -269,20 +241,17 @@ public class MainActivity extends Activity implements OnTouchListener,CvCameraVi
             if (mChatService == null) setupChat();
         }
     }
-
     @Override
     public void onPause() {
         if (mOpenCvCameraView != null)
             mOpenCvCameraView.disableView();
-        //KeepRunning = false;
+        KeepRunning = false;
         super.onPause();
     }
     @Override
     public void onResume() {
         super.onResume();
         OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_2_4_3, this, mLoaderCallback);
-        if(D) Log.e(TAG, "+ ON RESUME +");
-
         // Performing this check in onResume() covers the case in which BT was
         // not enabled during onStart(), so we were paused to enable it...
         // onResume() will be called when ACTION_REQUEST_ENABLE activity returns.
@@ -300,34 +269,16 @@ public class MainActivity extends Activity implements OnTouchListener,CvCameraVi
         if (mOpenCvCameraView != null)
             mOpenCvCameraView.disableView();
         if (mChatService != null) mChatService.stop();
-        if(D) Log.e(TAG, "--- ON DESTROY ---");
-        //init();
-            //sendMessage0("0");
+        sendMessage0("0");
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean("ISFront", ISFront);
     }
 
     private void setupChat() {
-        Log.d(TAG, "setupChat()");
-
-        // Initialize the array adapter for the conversation thread
-        //mConversationArrayAdapter = new ArrayAdapter<String>(this, R.layout.message);
-        //mConversationView = (ListView) findViewById(R.id.in);
-        //mConversationView.setAdapter(mConversationArrayAdapter);
-
-        // Initialize the compose field with a listener for the return key
-        //mOutEditText = (EditText) findViewById(R.id.edit_text_out);
-        //mOutEditText.setOnEditorActionListener(mWriteListener);
-
-        // Initialize the send button with a listener that for click events
-        //mSendButton = (Button) findViewById(R.id.button_send);
-//        mSendButton.setOnClickListener(new OnClickListener() {
-//            public void onClick(View v) {
-//                // Send a message using content of the edit text widget
-//                TextView view = (TextView) findViewById(R.id.edit_text_out);
-//                String message = view.getText().toString();
-//                sendMessage(message);
-//            }
-//        });
-
         // Initialize the BluetoothChatService to perform bluetooth connections
         mChatService = new BluetoothChatService(this, mHandler);
 
@@ -336,7 +287,6 @@ public class MainActivity extends Activity implements OnTouchListener,CvCameraVi
     }
 
     private void ensureDiscoverable() {
-        if(D) Log.d(TAG, "ensure discoverable");
         if (mBluetoothAdapter.getScanMode() !=
                 BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
             Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
@@ -345,63 +295,57 @@ public class MainActivity extends Activity implements OnTouchListener,CvCameraVi
         }
     }
 
-    /**
-     * Sends a message.
-     * @param message  A string of text to send.
-     */
-//    private void sendMessage0(String message) {
-//        // Check that we're actually connected before trying anything
-//        if (mChatService.getState() != BluetoothChatService.STATE_CONNECTED) {
-//            //Toast.makeText(this, R.string.not_connected, Toast.LENGTH_SHORT).show();
-//            return;
-//        }
-//
-//        // Check that there's actually something to send
-//        if (message.length() > 0) {
-//            // Get the message bytes and tell the BluetoothChatService to write
-//            byte[] send = message.getBytes();
-//            mChatService.write(send);
-//
-//            // Reset out string buffer to zero and clear the edit text field
-//            mOutStringBuffer.setLength(0);
-//            /* mOutEditText.setText(mOutStringBuffer); */
-//        }
-//    }
+    private void ensureChange(){
+        ISFront=!ISFront;
+        return;
+    }
 
-    // The action listener for the EditText widget, to listen for the return key
-//    private TextView.OnEditorActionListener mWriteListener =
-//            new TextView.OnEditorActionListener() {
-//                public boolean onEditorAction(TextView view, int actionId, KeyEvent event) {
-//                    // If the action is a key-up event on the return key, send the message
-//                    if (actionId == EditorInfo.IME_NULL && event.getAction() == KeyEvent.ACTION_UP) {
-//                        String message = view.getText().toString();
-//                        sendMessage(message);
-//                    }
-//                    if(D) Log.i(TAG, "END onEditorAction");
-//                    return true;
-//                }
-//            };
+    public void restart(){
+        Intent intent = getIntent();
+
+        overridePendingTransition(0, 0);
+
+        intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
+
+        finish();
+
+        overridePendingTransition(0, 0);
+
+        startActivity(intent);
+    }
+
+    private void sendMessage0(String message) {
+        // Check that we're actually connected before trying anything
+        if (mChatService.getState() != BluetoothChatService.STATE_CONNECTED) {
+            return;
+        }
+
+        // Check that there's actually something to send
+        if (message.length() > 0) {
+            // Get the message bytes and tell the BluetoothChatService to write
+            byte[] send = message.getBytes();
+            mChatService.write(send);
+
+            // Reset out string buffer to zero and clear the edit text field
+            mOutStringBuffer.setLength(0);
+            /* mOutEditText.setText(mOutStringBuffer); */
+        }
+    }
     // The Handler that gets information back from the BluetoothChatService
     private final Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case MESSAGE_STATE_CHANGE:
-                    if(D) Log.i(TAG, "MESSAGE_STATE_CHANGE: " + msg.arg1);
                     switch (msg.arg1) {
                         case BluetoothChatService.STATE_CONNECTED:
-                            //mTitle.setText(R.string.title_connected_to);
-                            //mTitle.append(mConnectedDeviceName);
-                            //mConversationArrayAdapter.clear();
                             state=true;
                             Toast.makeText(MainActivity.this,"Device has connected!",Toast.LENGTH_SHORT).show();
                             break;
                         case BluetoothChatService.STATE_CONNECTING:
-                            //mTitle.setText(R.string.title_connecting);
                             break;
                         case BluetoothChatService.STATE_LISTEN:
                         case BluetoothChatService.STATE_NONE:
-                            //mTitle.setText(R.string.title_not_connected);
                             state=false;
                             break;
                     }
@@ -410,7 +354,6 @@ public class MainActivity extends Activity implements OnTouchListener,CvCameraVi
                     byte[] writeBuf = (byte[]) msg.obj;
                     // construct a string from the buffer
                     String writeMessage = new String(writeBuf);
-                    //mConversationArrayAdapter.add("Me:  " + writeMessage);
                     break;
                 case MESSAGE_DEVICE_NAME:
                     // save the connected device's name
@@ -428,7 +371,6 @@ public class MainActivity extends Activity implements OnTouchListener,CvCameraVi
     };
 
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if(D) Log.d(TAG, "onActivityResult " + resultCode);
         switch (requestCode) {
             case REQUEST_CONNECT_DEVICE:
                 // When DeviceListActivity returns with a device to connect
@@ -449,34 +391,10 @@ public class MainActivity extends Activity implements OnTouchListener,CvCameraVi
                     setupChat();
                 } else {
                     // User did not enable Bluetooth or an error occured
-                    Log.d(TAG, "BT not enabled");
                     Toast.makeText(this, R.string.bt_not_enabled_leaving, Toast.LENGTH_SHORT).show();
                     finish();
                 }
         }
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        MenuInflater inflater = getMenuInflater();
-        inflater.inflate(R.menu.menu_main, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case R.id.scan:
-                // Launch the DeviceListActivity to see devices and do scan
-                Intent serverIntent = new Intent(this, device_list.class);
-                startActivityForResult(serverIntent, REQUEST_CONNECT_DEVICE);
-                return true;
-            case R.id.discoverable:
-                // Ensure this device is discoverable by others
-                ensureDiscoverable();
-                return true;
-        }
-        return false;
     }
 
     public void onCameraViewStarted(int width, int height) {
@@ -487,7 +405,8 @@ public class MainActivity extends Activity implements OnTouchListener,CvCameraVi
         mBlobColorHsv = new Scalar(255.0D);
         SPECTRUM_SIZE = new Size(200.0D, 64.0D);
         CONTOUR_COLOR = new Scalar(255.0D,0.0D,0.0D,255.0D);
-        Center=(width/2);
+        CenterUD=(height/2);
+        CenterLR=(width/2);
     }
 
     public void onCameraViewStopped() {
@@ -503,8 +422,6 @@ public class MainActivity extends Activity implements OnTouchListener,CvCameraVi
 
         int x = (int)event.getX() - xOffset;
         int y = (int)event.getY() - yOffset;
-
-        Log.i(TAG, "Touch image coordinates: (" + x + ", " + y + ")");
 
         if ((x < 0) || (y < 0) || (x > cols) || (y > rows)) return false;
 
@@ -529,9 +446,6 @@ public class MainActivity extends Activity implements OnTouchListener,CvCameraVi
 
         mBlobColorRgba = converScalarHsv2Rgba(mBlobColorHsv);
 
-        Log.i(TAG, "Touched rgba color: (" + mBlobColorRgba.val[0] + ", " + mBlobColorRgba.val[1] +
-                ", " + mBlobColorRgba.val[2] + ", " + mBlobColorRgba.val[3] + ")");
-
         mDetector.setHsvColor(mBlobColorHsv);
 
         Imgproc.resize(mDetector.getSpectrum(), mSpectrum, SPECTRUM_SIZE);
@@ -540,39 +454,36 @@ public class MainActivity extends Activity implements OnTouchListener,CvCameraVi
 
         touchedRegionRgba.release();
         touchedRegionHsv.release();
-
+        new Thread(new MyThread()).start();
         return false; // don't need subsequent touch events
     }
 
     public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
         mRgba = inputFrame.rgba();
 
-        Point[] arrayOfPoint;
-        int[] arrayOfInt;
-        int j;
-
         if (mIsColorSelected) {
             mDetector.process(mRgba);
             List<MatOfPoint> contours = mDetector.getContours();
-            Log.e(TAG, "Contours count: " + contours.size());
             if(contours.size()<=0){
                 Xpos=0;
                 Ypos=0;
             }
             else{
-                MatOfPoint var11=new MatOfPoint((Mat)contours.get(0));
-                int var12=(int)var11.total();
-                Point[] var13=new Point[var12];
-                if (var12>0){
-                    int[] var19=new int[var12*2];
-                    var11.get(0,0,var19);
+                MatOfPoint mat_contours=new MatOfPoint((Mat)contours.get(0));
+                int temp=(int)mat_contours.total();
+                System.out.println(temp);
+                Point[] pos_temp=new Point[temp];
+                if (temp>0){
+                    int[] point_contours=new int[temp*2];
+                    mat_contours.get(0, 0, point_contours);
 
-                    for(int var21=0;var21<var12;++var21){
-                        var13[var21]=new Point((double)var19[var21*2],(double)var19[1+var21*2]);
+                    for(int i=0;i<temp;++i){
+                        pos_temp[i]=new Point((double)point_contours[i*2],(double)point_contours[1+i*2]);
                     }
-                    Xpos=(int)var13[0].x;
-                    Ypos=(int)var13[0].y;
+                    Xpos=(int)pos_temp[0].x;
+                    Ypos=(int)pos_temp[0].y;
                     LastX=Xpos;
+                    LastY=Ypos;
                 }
             }
             Imgproc.drawContours(mRgba, contours, -1, CONTOUR_COLOR);
@@ -583,28 +494,29 @@ public class MainActivity extends Activity implements OnTouchListener,CvCameraVi
             Mat spectrumLabel = mRgba.submat(4, 4 + mSpectrum.rows(), 70, 70 + mSpectrum.cols());
             mSpectrum.copyTo(spectrumLabel);
             ObjectArea=mDetector.getObjectArea();
-            Mat var16=mRgba;
-            String var17 = "X=" + this.Xpos + ", Y=" + this.Ypos + " ,A=" + this.ObjectArea;
+            Mat color0 =mRgba;
+            String Coordinate = "X=" + this.Xpos + ", Y=" + this.Ypos + " ,Area=" + this.ObjectArea;
             //change
 
-            Point var18 = new Point((double)(80 + this.mSpectrum.cols()), 65.0D);
-            Core.putText(var16, var17, var18, 1, 3.0D, new Scalar(0.0D, 0.0D, 255.0D, 255.0D), 5);
+            Point text_PosXY0 = new Point((double)(80 + this.mSpectrum.cols()), 65.0D);
+            Core.putText(color0, Coordinate,text_PosXY0, 1, 1.5D, new Scalar(0.0D, 0.0D, 255.0D, 255.0D), 2);
         } else {
-            Mat var2 = this.mRgba;
-            Point var3 = new Point(5.0D, 65.0D);
-            Core.putText(var2, "Click object on screen to track", var3, 1, 3.0D, new Scalar(0.0D, 0.0D, 255.0D, 255.0D), 5);
+            Mat color1 = this.mRgba;
+            Point text_PosXY1 = new Point(5.0D, 65.0D);
+            Core.putText(color1, "Click object on screen to select!", text_PosXY1, 1, 2.0D, new Scalar(0.0D, 0.0D, 255.0D, 255.0D), 2);
         }
 
-        String dir = "center" + ":"+directions;
-        //sendMessage(message);
-        Mat var4 = this.mRgba;
-        Point var5 = new Point(5.0D, (double)(-25 + this.mRgba.rows()));
-        Core.putText(var4, dir, var5, 1, 5.0D, new Scalar(0.0D, 0.0D, 255.0D, 255.0D), 5);
-        Mat var6 = this.mRgba;
-        Point var7 = new Point((double)this.Center, 0.0D);
-        Point var8 = new Point((double)this.Center, (double)this.mRgba.rows());
-        Core.line(var6, var7, var8, new Scalar(255.0D, 0.0D, 0.0D, 255.0D));
-
+        String dir = "Position" + ":"+directions+","+directionsUD;
+        Mat Capturer0 = this.mRgba;
+        Point text_Pos = new Point(5.0D, (double)(-25 + this.mRgba.rows()));
+        Core.putText(Capturer0, dir, text_Pos, 2,1.5D, new Scalar(0.0D, 0.0D, 255.0D, 255.0D), 2);
+        Mat Capturer1 = this.mRgba;
+        Point pointCenter_Up = new Point((double)this.CenterLR, 0.0D);
+        Point pointCenter_Left=new Point(0.0D,(double)this.CenterUD);
+        Point pointCenter_Down = new Point((double)this.CenterLR, (double)this.mRgba.rows());
+        Point pointCenter_Right=new Point((double)this.mRgba.cols(),(double)this.CenterUD);
+        Core.line(Capturer1, pointCenter_Up, pointCenter_Down, new Scalar(255.0D, 0.0D, 0.0D, 255.0D));
+        Core.line(Capturer1,pointCenter_Left,pointCenter_Right,new Scalar(255.0D,0.0D,255.0D,255.0D));
         return mRgba;
     }
 
@@ -615,4 +527,37 @@ public class MainActivity extends Activity implements OnTouchListener,CvCameraVi
 
         return new Scalar(pointMatRgba.get(0, 0));
     }
+
+    //Menu
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.menu_main, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.scan:
+                // Launch the DeviceListActivity to see devices and do scan
+                Intent serverIntent = new Intent(this, device_list.class);
+                startActivityForResult(serverIntent, REQUEST_CONNECT_DEVICE);
+                return true;
+            case R.id.discoverable:
+                // Ensure this device is discoverable by others
+                ensureDiscoverable();
+                return true;
+            case R.id.front:
+                ensureChange();
+                restart();
+                return true;
+            case R.id.about:
+                Intent aboutIntent=new Intent(this,AboutActivity.class);
+                startActivity(aboutIntent);
+                return true;
+        }
+        return false;
+    }
+
 }
