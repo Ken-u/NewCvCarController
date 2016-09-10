@@ -10,9 +10,10 @@ Require:You should install OpenCv Manager.apk to use this,and use this to contro
 ```
 
 ###It would follow something that you had choosed.Like these:
-![image](https://github.com/Ken-u/NewCvCarController/tree/master/gif/1.gif )
-![image](https://github.com/Ken-u/NewCvCarController/tree/master/gif/2.gif )
-![image](https://github.com/Ken-u/NewCvCarController/tree/master/gif/3.gif )
+
+![image](https://github.com/Ken-u/NewCvCarController/blob/master/gif/1.gif )
+![image](https://github.com/Ken-u/NewCvCarController/blob/master/gif/2.gif )
+![image](https://github.com/Ken-u/NewCvCarController/blob/master/gif/3.gif )
 
 ###Table of the control order:
 |direction|order|
